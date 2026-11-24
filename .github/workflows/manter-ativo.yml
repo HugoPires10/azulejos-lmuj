@@ -1,0 +1,30 @@
+name: Manter Supabase ativo
+
+on:
+  schedule:
+    - cron: '0 12 */3 * *'   # a cada 3 dias, ao meio-dia (UTC)
+  workflow_dispatch:          # permite rodar manualmente
+
+permissions:
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar o banco de dados
+        run: |
+          curl -sf "https://vqrtpodiebwwmimskgbd.supabase.co/rest/v1/config?select=chave&limit=1" \
+            -H "apikey: sb_publishable_6nGjuzV-rczSW6MH2EUEVw_A_GRdGee" \
+            -o /dev/null -w "Supabase respondeu: %{http_code}\n"
+
+      - uses: actions/checkout@v4
+
+      - name: Registrar atividade (evita o GitHub desligar o agendamento)
+        run: |
+          date -u > ultimo-acesso.txt
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add ultimo-acesso.txt
+          git commit -m "Manter banco ativo" || true
+          git push
