@@ -35,7 +35,7 @@
 
   /* Layout */
   header{background:var(--navy);color:#fff;border-bottom:3px solid var(--gold)}
-  .hwrap{max-width:1200px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .hwrap{max-width:1340px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   .hwrap img{width:50px;height:50px;border-radius:50%;background:#fff}
   .htitle h1{margin:0;font-size:19px;letter-spacing:.5px}
   .htitle div{font-size:12px;color:var(--gold2);letter-spacing:2px}
@@ -46,7 +46,7 @@
   .badge{display:inline-block;background:#d9534f;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:4px}
   .who{font-size:12px;color:#c7cfe0;text-align:right;line-height:1.3;margin-left:6px}
   .who b{color:#fff;font-weight:600}
-  main{max-width:1200px;margin:0 auto;padding:22px 20px 60px}
+  main{max-width:1340px;margin:0 auto;padding:22px 20px 60px}
   .card{background:#fff;border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid var(--line)}
   .btn{background:var(--navy);color:#fff;border:none;padding:10px 18px;border-radius:8px;font-weight:600}
   .btn:hover{background:var(--navy2)} .btn:disabled{opacity:.5;cursor:default}
@@ -95,6 +95,10 @@
 
   /* Usuários */
   .chk{width:20px;height:20px;cursor:pointer;accent-color:var(--navy)}
+  .perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;padding-top:6px;font-size:14px}
+  .perm-grid label{display:flex;gap:8px;align-items:center;font-weight:500;margin:0;cursor:pointer}
+  .perm-grid label.adm{grid-column:1/-1;border-top:1px solid var(--line);padding-top:8px;color:var(--navy)}
+  .utable th.c{font-size:12px;white-space:normal;min-width:70px;line-height:1.25}
   td.c,th.c{text-align:center}
 
   /* Parede */
@@ -227,14 +231,14 @@
         <select id="filterStatus"><option value="">Todas as situações</option><option value="pendente">Aguardando aprovação</option><option value="aprovada">Aprovadas</option><option value="recusada">Recusadas</option></select>
         <select id="filterTipo"><option value="">PF e PJ</option><option value="PF">Pessoa Física</option><option value="PJ">Pessoa Jurídica</option></select>
         <select id="filterResp"><option value="">Todos os responsáveis</option></select>
-        <button class="btn ghost sm" id="exportCsv">Exportar Excel (CSV)</button>
-        <button class="btn ghost sm" id="exportJson">Backup</button>
+        <button class="btn ghost sm only-exportar" id="exportCsv">Exportar Excel (CSV)</button>
+        <button class="btn ghost sm only-exportar" id="exportJson">Backup</button>
       </div>
       <div class="tablewrap">
         <table>
           <thead><tr>
             <th data-sort="nome">Nome</th><th data-sort="tipo">Tipo</th><th data-sort="azulejo">Nome no azulejo</th>
-            <th data-sort="valor">Valor</th><th data-sort="resp">Responsável</th><th data-sort="data">Data</th>
+            <th data-sort="valor" class="only-valores">Valor</th><th data-sort="resp">Responsável</th><th data-sort="data">Data</th>
             <th data-sort="status">Situação</th><th></th>
           </tr></thead>
           <tbody id="tbody"></tbody>
@@ -265,12 +269,7 @@
         <div><label for="nu-senha">Senha inicial (mínimo 8 caracteres)</label>
           <div style="display:flex;gap:6px"><input id="nu-senha" type="text" required minlength="8" autocomplete="new-password"><button type="button" class="btn ghost sm" id="genPwd" title="Gerar senha forte">Gerar</button></div></div>
         <div><label>O que este usuário pode fazer</label>
-          <div style="display:flex;gap:14px;flex-wrap:wrap;padding-top:8px;font-size:14px">
-            <label style="display:flex;gap:6px;align-items:center;font-weight:500;margin:0"><input type="checkbox" class="chk" id="nu-reg"> Registrar venda</label>
-            <label style="display:flex;gap:6px;align-items:center;font-weight:500;margin:0"><input type="checkbox" class="chk" id="nu-apr"> Aprovar venda</label>
-            <label style="display:flex;gap:6px;align-items:center;font-weight:500;margin:0"><input type="checkbox" class="chk" id="nu-par"> Ver parede</label>
-            <label style="display:flex;gap:6px;align-items:center;font-weight:500;margin:0"><input type="checkbox" class="chk" id="nu-adm"> Administrador</label>
-          </div></div>
+          <div id="nu-perms" class="perm-grid"></div></div>
       </div>
       <div class="right"><button class="btn gold" id="nuBtn">Criar usuário</button></div>
     </form>
@@ -278,8 +277,8 @@
       <h2 class="section-title">Usuários e permissões</h2>
       <div class="note">Marque ou desmarque o que cada pessoa pode fazer. A alteração é salva na hora e vale no próximo acesso da pessoa.</div>
       <div class="tablewrap">
-        <table>
-          <thead><tr><th>Nome</th><th>E-mail</th><th class="c">Registrar venda</th><th class="c">Aprovar venda</th><th class="c">Ver parede</th><th class="c">Administrador</th><th></th></tr></thead>
+        <table class="utable">
+          <thead><tr id="usersHead"></tr></thead>
           <tbody id="usersBody"></tbody>
         </table>
       </div>
@@ -320,20 +319,30 @@ const today = () => new Date().toISOString().slice(0,10);
 function dbErr(error){ if(error){ alert('Erro ao acessar o banco de dados:\n' + error.message); throw error; } }
 
 /* ---------- Permissões ---------- */
+// Cada função do sistema é uma permissão separada (o banco de dados confere todas)
+const PERM_LIST = [
+  ['pode_registrar',  'Registrar vendas'],
+  ['pode_aprovar',    'Aprovar vendas'],
+  ['pode_ver_vendas', 'Ver lista de vendas'],
+  ['pode_ver_valores','Ver valores (R$)'],
+  ['pode_ver_parede', 'Ver parede'],
+  ['pode_baixar',     'Baixar imagem do azulejo'],
+  ['pode_exportar',   'Exportar planilha'],
+];
+const PERMS = PERM_LIST.map(p => p[0]);
+const PMAP = {registrar:'pode_registrar', aprovar:'pode_aprovar', vendas:'pode_ver_vendas', valores:'pode_ver_valores',
+              parede:'pode_ver_parede', baixar:'pode_baixar', exportar:'pode_exportar'};
 function can(p){
   if(!me) return false;
   if(me.admin) return true;
-  if(p==='registrar') return me.pode_registrar;
-  if(p==='aprovar')   return me.pode_aprovar;
-  if(p==='parede')    return me.pode_ver_parede;
-  if(p==='lista')     return me.pode_registrar || me.pode_aprovar;
-  return false;
+  if(p==='lista') return !!(me.pode_registrar || me.pode_ver_vendas);
+  return !!me[PMAP[p]];
 }
-const hasAny = () => can('registrar') || can('aprovar') || can('parede');
+const hasAny = () => can('registrar') || can('aprovar') || can('vendas') || can('parede');
 const mine = d => me && d.criado_por === me.id;
 function roleText(){
   if(me.admin) return 'Administrador';
-  return [can('registrar')&&'Registrar', can('aprovar')&&'Aprovar', can('parede')&&'Parede'].filter(Boolean).join(' · ');
+  return PERM_LIST.filter(([f]) => me[f]).map(([,l]) => l).join(' · ');
 }
 
 /* ---------- Login ---------- */
@@ -377,7 +386,10 @@ async function start(){
   $('stats').classList.toggle('hidden', !can('lista'));
   $('growWall').classList.toggle('hidden', !can('admin'));
   $('pendNote').classList.toggle('hidden', can('aprovar'));
-  $('listTitle').textContent = can('aprovar') ? 'Todas as vendas' : 'Minhas vendas';
+  $('listTitle').textContent = can('vendas') ? 'Todas as vendas' : 'Minhas vendas';
+  document.querySelectorAll('.only-valores').forEach(el => el.classList.toggle('hidden', !can('valores')));
+  document.querySelectorAll('.only-exportar').forEach(el => el.classList.toggle('hidden', !can('exportar')));
+  $('downloadTile').classList.toggle('hidden', !can('baixar'));
   $('editNote').classList.toggle('hidden', can('admin'));
   const first = ['aprovacoes','cadastro','parede','lista','usuarios'].find(t => can(document.querySelector(`#nav button[data-tab="${t}"]`).dataset.perm));
   showTab(can('aprovar') && !can('registrar') ? 'aprovacoes' : first);
@@ -396,12 +408,15 @@ function showTab(t){
 
 /* ---------- Dados ---------- */
 async function loadData(){
-  const [{data:rows,error},{data:cfg}] = await Promise.all([
-    sb.from('azulejos').select('*').order('created_at'),
-    sb.from('config').select('valor').eq('chave','tamanho_parede').maybeSingle()
+  const COLS = 'id,created_at,tipo,nome,loja,resp,azulejo,data,status,criado_por,criado_por_email,aprovado_por_email,aprovado_em,motivo_recusa';
+  const [{data:rows,error},{data:cfg},vals] = await Promise.all([
+    sb.from('azulejos').select(COLS).order('created_at'),
+    sb.from('config').select('valor').eq('chave','tamanho_parede').maybeSingle(),
+    can('valores') ? sb.rpc('valores_vendas') : Promise.resolve({data:[]})
   ]);
-  dbErr(error);
-  data = (rows||[]).map(r => ({...r, valor:Number(r.valor)}));
+  dbErr(error); dbErr(vals.error);
+  const vmap = Object.fromEntries((vals.data||[]).map(v => [v.id, Number(v.valor)]));
+  data = (rows||[]).map(r => ({...r, valor: r.id in vmap ? vmap[r.id] : null}));
   if (cfg && +cfg.valor) wallSize = +cfg.valor;
   renderAll();
 }
@@ -520,7 +535,7 @@ function renderApprovals(){
     <img src="${thumb(d)}" onclick="openTile('${d.id}')" alt="">
     <div class="info"><b>${esc(d.nome)}</b> <span class="tag ${d.tipo.toLowerCase()}">${d.tipo==='PF'?'Física':'Jurídica'}</span><br>
       Azulejo: <b style="font-size:13px">${esc(d.azulejo)}</b><br>
-      Valor: ${brl(d.valor)} · ${fmtDate(d.data)}<br>
+      ${can('valores')?`Valor: ${brl(d.valor)} · `:''}${fmtDate(d.data)}<br>
       Responsável: ${esc(d.resp)}<br>
       <span class="small">Registrado por ${esc(d.criado_por_email||'—')}</span>
       <div class="btns"><button class="btn green sm" onclick="approve('${d.id}')">✓ Aprovar</button><button class="btn danger sm" onclick="reject('${d.id}')">✗ Recusar</button>${canEdit(d)?`<button class="btn ghost sm" onclick="editRec('${d.id}')">Editar</button>`:''}</div>
@@ -538,7 +553,7 @@ function renderTable(){
   $('tbody').innerHTML=rows.length?rows.map(d=>`<tr>
     <td><b>${esc(d.nome)}</b>${d.loja?`<div class="small">${esc(d.loja)}</div>`:''}</td>
     <td><span class="tag ${d.tipo.toLowerCase()}">${d.tipo==='PF'?'Física':'Jurídica'}</span></td>
-    <td>${esc(d.azulejo)}</td><td>${brl(d.valor)}</td><td>${esc(d.resp)}</td><td>${fmtDate(d.data)}</td>
+    <td>${esc(d.azulejo)}</td>${can('valores')?`<td>${brl(d.valor)}</td>`:''}<td>${esc(d.resp)}</td><td>${fmtDate(d.data)}</td>
     <td><span class="tag ${d.status}">${STATUS[d.status]||d.status}</span>${d.status==='recusada'&&d.motivo_recusa?`<div class="small" title="${esc(d.motivo_recusa)}">Motivo: ${esc(d.motivo_recusa)}</div>`:''}</td>
     <td><div class="actions"><button class="btn gold sm" onclick="openTile('${d.id}')">Azulejo</button>
       ${canEdit(d)?`<button class="btn ghost sm" onclick="editRec('${d.id}')">Editar</button>`:''}
@@ -550,7 +565,8 @@ document.querySelectorAll('th[data-sort]').forEach(th=>th.onclick=()=>{const k=t
 
 function renderStats(){
   const ap=data.filter(d=>d.status==='aprovada');
-  const items=[['Azulejos aprovados',ap.length],['Total arrecadado (aprovados)',brl(ap.reduce((s,d)=>s+(+d.valor||0),0))],
+  const items=[['Azulejos aprovados',ap.length],
+    ...(can('valores')?[['Total arrecadado (aprovados)',brl(ap.reduce((s,d)=>s+(+d.valor||0),0))]]:[]),
     ['Aguardando aprovação',data.filter(d=>d.status==='pendente').length],['Recusados',data.filter(d=>d.status==='recusada').length]];
   $('stats').innerHTML=items.map(([k,v])=>`<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
 }
@@ -591,12 +607,14 @@ async function loadUsers(){
   dbErr(error);users=rows||[];renderUsers();
 }
 function renderUsers(){
-  const box=(u,f)=>`<input type="checkbox" class="chk" ${u[f]?'checked':''} ${u.id===me.id&&f==='admin'?'disabled title="Você não pode remover seu próprio acesso de administrador"':''} onchange="setPerm('${u.id}','${f}',this)">`;
+  $('usersHead').innerHTML='<th>Nome</th><th>E-mail</th>'+PERM_LIST.map(([,l])=>`<th class="c">${l}</th>`).join('')+'<th class="c">Administrador</th><th></th>';
+  const box=(u,f)=>`<input type="checkbox" class="chk" ${u[f]?'checked':''} ${u.id===me.id&&f==='admin'?'disabled title="Você não pode remover seu próprio acesso de administrador"':''} ${u.admin&&f!=='admin'?'title="Administrador já tem acesso a tudo"':''} onchange="setPerm('${u.id}','${f}',this)">`;
   $('usersBody').innerHTML=users.map(u=>`<tr>
-    <td><b>${esc(u.nome)}</b>${u.id===me.id?' <span class="small">(você)</span>':''}${!(u.admin||u.pode_registrar||u.pode_aprovar||u.pode_ver_parede)?' <span class="tag pendente">sem acesso</span>':''}</td>
+    <td><b>${esc(u.nome)}</b>${u.id===me.id?' <span class="small">(você)</span>':''}${!(u.admin||PERMS.some(f=>u[f]))?' <span class="tag pendente">sem acesso</span>':''}</td>
     <td>${esc(u.email)}</td>
-    <td class="c">${box(u,'pode_registrar')}</td><td class="c">${box(u,'pode_aprovar')}</td><td class="c">${box(u,'pode_ver_parede')}</td><td class="c">${box(u,'admin')}</td>
-    <td><div class="actions"><button class="btn ghost sm" onclick="resetPwd('${u.id}')">Trocar senha</button>
+    ${PERMS.map(f=>`<td class="c">${box(u,f)}</td>`).join('')}
+    <td class="c">${box(u,'admin')}</td>
+    <td><div class="actions" style="flex-direction:column;align-items:stretch"><button class="btn ghost sm" onclick="resetPwd('${u.id}')">Trocar senha</button>
       ${u.id!==me.id?`<button class="btn danger sm" onclick="deleteUser('${u.id}')">Excluir</button>`:''}</div></td></tr>`).join('');
 }
 async function callAdmin(body){
@@ -615,14 +633,17 @@ function strongPwd(){
   return Array.from(a,x=>chars[x%chars.length]).join('');
 }
 $('genPwd').onclick=()=>{$('nu-senha').value=strongPwd();};
+$('nu-perms').innerHTML=PERM_LIST.map(([f,l])=>`<label><input type="checkbox" class="chk" data-perm="${f}"> ${l}</label>`).join('')
+  +`<label class="adm"><input type="checkbox" class="chk" data-perm="admin"> Administrador (pode tudo: editar/excluir vendas e gerenciar usuários)</label>`;
 $('newUserForm').onsubmit=async e=>{
   e.preventDefault();
-  const body={acao:'criar',nome:$('nu-nome').value.trim(),email:$('nu-email').value.trim().toLowerCase(),senha:$('nu-senha').value,
-    permissoes:{pode_registrar:$('nu-reg').checked,pode_aprovar:$('nu-apr').checked,pode_ver_parede:$('nu-par').checked,admin:$('nu-adm').checked}};
-  if(!Object.values(body.permissoes).some(Boolean)&&!confirm('Nenhuma permissão marcada: o usuário não vai conseguir ver nada. Criar mesmo assim?'))return;
+  const perms=Object.fromEntries([...document.querySelectorAll('#nu-perms input')].map(i=>[i.dataset.perm,i.checked]));
+  const body={acao:'criar',nome:$('nu-nome').value.trim(),email:$('nu-email').value.trim().toLowerCase(),senha:$('nu-senha').value,permissoes:perms};
+  if(!Object.values(perms).some(Boolean)&&!confirm('Nenhuma permissão marcada: o usuário não vai conseguir ver nada. Criar mesmo assim?'))return;
   $('nuBtn').disabled=true;
   try{
-    await callAdmin(body);
+    const r=await callAdmin(body);
+    if(r&&r.id){const {error}=await sb.from('perfis').update(perms).eq('id',r.id);dbErr(error);}
     alert(`Usuário criado!\n\nPasse estes dados para a pessoa:\nE-mail: ${body.email}\nSenha: ${body.senha}`);
     $('newUserForm').reset();await loadUsers();
   }catch(err){alert('Não foi possível criar o usuário:\n'+err.message);}
@@ -653,23 +674,25 @@ async function setPerm(id,field,el){
 function openTile(id){
   current=data.find(d=>d.id===id);if(!current)return;
   drawTile($('modalCanvas'),current);
-  const extra=can('lista')?`<div>Valor: <b>${brl(current.valor)}</b></div><div>Responsável: <b>${esc(current.resp)}</b></div>
+  const extra=(can('lista')||can('aprovar'))?`${can('valores')?`<div>Valor: <b>${brl(current.valor)}</b></div>`:''}<div>Responsável: <b>${esc(current.resp)}</b></div>
     <div>Situação: <span class="tag ${current.status}">${STATUS[current.status]}</span></div><div>Data: <b>${fmtDate(current.data)}</b></div>`:'';
   $('modalInfo').innerHTML=`<div>Nome: <b>${esc(current.nome)}</b></div><div>Tipo: <b>${current.tipo==='PF'?'Pessoa Física':'Pessoa Jurídica'}</b></div>${extra}`;
   $('modal').classList.remove('hidden');
 }
 $('closeModal').onclick=()=>$('modal').classList.add('hidden');
 $('modal').onclick=e=>{if(e.target.id==='modal')$('modal').classList.add('hidden');};
-$('downloadTile').onclick=()=>{const a=document.createElement('a');a.download=`azulejo-${current.azulejo.replace(/[^\wÀ-ÿ]+/g,'-')}.png`;a.href=$('modalCanvas').toDataURL('image/png');a.click();};
+$('downloadTile').onclick=()=>{if(!can('baixar'))return;const a=document.createElement('a');a.download=`azulejo-${current.azulejo.replace(/[^\wÀ-ÿ]+/g,'-')}.png`;a.href=$('modalCanvas').toDataURL('image/png');a.click();};
 
 /* ---------- Exportar ---------- */
 function download(name,content,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();}
 $('exportCsv').onclick=()=>{
-  const h=['Nome','Tipo','Loja','Nome no azulejo','Valor','Responsável','Data','Situação','Registrado por','Aprovado/recusado por'];
-  const rows=filtered().map(d=>[d.nome,d.tipo==='PF'?'Pessoa Física':'Pessoa Jurídica',d.loja,d.azulejo,String(d.valor).replace('.',','),d.resp,fmtDate(d.data),STATUS[d.status],d.criado_por_email,d.aprovado_por_email]);
+  if(!can('exportar'))return;
+  const v=can('valores');
+  const h=['Nome','Tipo','Loja','Nome no azulejo',...(v?['Valor']:[]),'Responsável','Data','Situação','Registrado por','Aprovado/recusado por'];
+  const rows=filtered().map(d=>[d.nome,d.tipo==='PF'?'Pessoa Física':'Pessoa Jurídica',d.loja,d.azulejo,...(v?[String(d.valor).replace('.',',')]:[]),d.resp,fmtDate(d.data),STATUS[d.status],d.criado_por_email,d.aprovado_por_email]);
   download('azulejos-uniao-e-justica.csv','﻿'+[h,...rows].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(';')).join('\r\n'),'text/csv');
 };
-$('exportJson').onclick=()=>download(`backup-azulejos-${today()}.json`,JSON.stringify(data,null,2),'application/json');
+$('exportJson').onclick=()=>can('exportar')&&download(`backup-azulejos-${today()}.json`,JSON.stringify(data,null,2),'application/json');
 
 /* ---------- Início ---------- */
 function renderAll(){
