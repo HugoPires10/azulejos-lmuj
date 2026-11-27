@@ -27,14 +27,27 @@
   header p{margin:0;color:var(--gold2);font-size:13px;letter-spacing:2px;text-transform:uppercase}
   .card{background:var(--cream);border:2px solid var(--gold);border-radius:16px;padding:18px;box-shadow:0 16px 50px rgba(0,0,0,.45)}
   label{font-size:13px;font-weight:600;color:#3b4252;display:block;margin-bottom:6px}
-  input[type=text]{font:inherit;font-size:17px;padding:13px 14px;border:1px solid #cfc6b0;border-radius:10px;background:#fff;width:100%}
-  input[type=text]:focus{outline:2px solid var(--gold);border-color:var(--gold)}
+  #nome{font:inherit;font-size:17px;padding:13px 14px;border:1px solid #cfc6b0;border-radius:10px;background:#fff;width:100%}
+  #nome:focus{outline:2px solid var(--gold);border-color:var(--gold)}
   .count{font-size:12px;color:var(--muted);text-align:right;margin-top:4px}
   .radio{display:flex;gap:8px;margin:14px 0 16px}
   .radio label{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #cfc6b0;border-radius:10px;padding:11px 8px;cursor:pointer;font-weight:500;margin:0;background:#fff;font-size:14px;text-align:center}
   .radio input{accent-color:var(--navy)}
   .radio label:has(input:checked){border-color:var(--gold);background:#fbf3df;font-weight:600}
   canvas{width:100%;display:block;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+  .tilebox{position:relative}
+  .plate-input{position:absolute;left:23%;top:66.2%;width:54%;height:7.8%;margin:0;padding:0 4px;
+    border:2px dashed rgba(201,162,74,.9);border-radius:6px;background:transparent;color:transparent;caret-color:transparent;
+    text-align:center;text-transform:uppercase;font-family:Roboto,Arial,sans-serif;font-weight:800;cursor:text;
+    animation:pulse 2s ease-in-out 3}
+  .plate-input:hover{background:rgba(255,250,235,.25)}
+  .plate-input:focus{background:#fffaf0;color:#1c2236;caret-color:#1c2236;border:2px solid var(--gold);outline:none;animation:none;box-shadow:0 0 0 4px rgba(201,162,74,.25)}
+  .plate-input::placeholder{color:transparent}
+  .plate-input:focus::placeholder{color:#b3a98f}
+  .plate-input.edited{border-color:transparent;animation:none}
+  .plate-input.edited:hover{border-color:rgba(201,162,74,.9)}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(201,162,74,0)}50%{box-shadow:0 0 0 6px rgba(201,162,74,.45)}}
+  .tap-hint{text-align:center;font-size:12.5px;color:#7a6a45;margin:8px 0 0}
   .btns{display:flex;gap:8px;margin-top:14px}
   .btn{flex:1;font:inherit;font-weight:600;border:none;border-radius:10px;padding:13px;cursor:pointer;font-size:15px}
   .btn.gold{background:var(--gold);color:var(--navy)}
@@ -53,13 +66,17 @@
 
   <div class="card">
     <label for="nome">Nome que vai no azulejo</label>
-    <input type="text" id="nome" maxlength="40" placeholder="Digite o nome aqui" autocomplete="off" autofocus>
+    <input type="text" id="nome" maxlength="40" placeholder="Digite o nome aqui" autocomplete="off">
     <div class="count"><span id="cnt">0</span>/40</div>
     <div class="radio">
       <label><input type="radio" name="tipo" value="PF" checked> Irmão / Pessoa física</label>
       <label><input type="radio" name="tipo" value="PJ"> Empresa</label>
     </div>
-    <canvas id="cv" width="1000" height="1000" aria-label="Prévia do azulejo"></canvas>
+    <div class="tilebox">
+      <canvas id="cv" width="1000" height="1000" aria-label="Prévia do azulejo"></canvas>
+      <input type="text" id="plate" class="plate-input" maxlength="40" autocomplete="off" placeholder="Digite o nome" aria-label="Nome no azulejo (toque para editar)" title="Clique para editar o nome">
+    </div>
+    <p class="tap-hint">✎ Toque no nome do azulejo para editar</p>
     <div class="btns">
       <button class="btn gold" id="baixar" type="button">Baixar imagem</button>
       <button class="btn navy" id="compartilhar" type="button">Compartilhar</button>
@@ -126,7 +143,24 @@ function watermark(c){
 
 const rec = () => ({ azulejo: $('nome').value.replace(/\s+/g,' ').trim(), tipo: document.querySelector('input[name=tipo]:checked').value });
 function render(){ $('cnt').textContent = $('nome').value.length; drawTile($('cv'), rec()); }
-$('nome').addEventListener('input', render);
+$('nome').addEventListener('input', () => { $('plate').value = $('nome').value; $('plate').classList.add('edited'); render(); });
+
+// Editar clicando direto na placa do azulejo
+const plate = $('plate');
+function sizePlate(){ plate.style.fontSize = ($('cv').clientWidth * 0.042) + 'px'; }
+plate.addEventListener('input', () => { $('nome').value = plate.value; plate.classList.add('edited'); render(); });
+let justFocused = false;
+const caretToEnd = () => { const n = plate.value.length; plate.setSelectionRange(n, n); };
+plate.addEventListener('focus', () => {
+  if (plate.value !== $('nome').value) plate.value = $('nome').value;
+  justFocused = true; caretToEnd();
+});
+// No primeiro toque, o cursor vai para o fim do nome (toques seguintes funcionam normalmente)
+plate.addEventListener('click', () => { if (justFocused) { justFocused = false; caretToEnd(); } });
+plate.addEventListener('keydown', e => { if (e.key === 'Enter') plate.blur(); });
+plate.addEventListener('blur', render);
+window.addEventListener('resize', sizePlate);
+sizePlate();
 document.querySelectorAll('input[name=tipo]').forEach(r => r.addEventListener('change', render));
 TILE_BASE.onload = render; LABEL_PATCH.onload = render;
 Promise.all([document.fonts.load('800 56px Roboto'), document.fonts.load('500 27px "Noto Serif"'), document.fonts.load('700 120px Cinzel')]).then(render).catch(()=>{});
