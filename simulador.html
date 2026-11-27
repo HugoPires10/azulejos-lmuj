@@ -35,7 +35,7 @@
   .radio input{accent-color:var(--navy)}
   .radio label:has(input:checked){border-color:var(--gold);background:#fbf3df;font-weight:600}
   canvas{width:100%;display:block;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
-  .tilebox{position:relative}
+  .tilebox{position:relative;touch-action:manipulation}
   .plate-input{position:absolute;left:23%;top:66.2%;width:54%;height:7.8%;margin:0;padding:0 4px;
     border:2px dashed rgba(201,162,74,.9);border-radius:6px;background:transparent;color:transparent;caret-color:transparent;
     text-align:center;text-transform:uppercase;font-family:Roboto,Arial,sans-serif;font-weight:800;cursor:text;
@@ -66,7 +66,7 @@
 
   <div class="card">
     <label for="nome">Nome que vai no azulejo</label>
-    <input type="text" id="nome" maxlength="40" placeholder="Digite o nome aqui" autocomplete="off">
+    <input type="text" id="nome" maxlength="40" placeholder="Digite o nome aqui" autocomplete="off" enterkeyhint="done">
     <div class="count"><span id="cnt">0</span>/40</div>
     <div class="radio">
       <label><input type="radio" name="tipo" value="PF" checked> Irmão / Pessoa física</label>
@@ -74,9 +74,9 @@
     </div>
     <div class="tilebox">
       <canvas id="cv" width="1000" height="1000" aria-label="Prévia do azulejo"></canvas>
-      <input type="text" id="plate" class="plate-input" maxlength="40" autocomplete="off" placeholder="Digite o nome" aria-label="Nome no azulejo (toque para editar)" title="Clique para editar o nome">
+      <input type="text" id="plate" class="plate-input" maxlength="40" autocomplete="off" enterkeyhint="done" placeholder="Digite o nome" aria-label="Nome no azulejo (toque para editar)" title="Clique para editar o nome">
     </div>
-    <p class="tap-hint">✎ Toque no nome do azulejo para editar</p>
+    <p class="tap-hint">✎ Toque no azulejo para escrever o nome</p>
     <div class="btns">
       <button class="btn gold" id="baixar" type="button">Baixar imagem</button>
       <button class="btn navy" id="compartilhar" type="button">Compartilhar</button>
@@ -147,7 +147,11 @@ $('nome').addEventListener('input', () => { $('plate').value = $('nome').value; 
 
 // Editar clicando direto na placa do azulejo
 const plate = $('plate');
-function sizePlate(){ plate.style.fontSize = ($('cv').clientWidth * 0.042) + 'px'; }
+// Mínimo de 16px: evita o zoom automático do iPhone ao tocar no campo
+function sizePlate(){ plate.style.fontSize = Math.max(16, $('cv').clientWidth * 0.042) + 'px'; }
+// Tocar em qualquer parte do azulejo abre a edição do nome
+$('cv').addEventListener('click', () => plate.focus());
+$('cv').style.cursor = 'text';
 plate.addEventListener('input', () => { $('nome').value = plate.value; plate.classList.add('edited'); render(); });
 let justFocused = false;
 const caretToEnd = () => { const n = plate.value.length; plate.setSelectionRange(n, n); };
